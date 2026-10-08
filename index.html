@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Absensi Siswa WA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+            color: #1f2937; /* Tailwind gray-800 */
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism utilities */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .glass-dark {
+            background: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        /* View Management */
+        .app-view { display: none; }
+        .app-view.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Toast Container */
+        #toast-container {
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+        }
+        .toast {
+            min-width: 250px; padding: 12px 20px; border-radius: 8px; color: white;
+            font-weight: 500; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            animation: slideInRight 0.3s ease forwards; pointer-events: auto;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .toast.success { background-color: #10b981; } /* Emerald-500 */
+        .toast.error { background-color: #ef4444; } /* Red-500 */
+        .toast.info { background-color: #3b82f6; } /* Blue-500 */
+        .toast-fade-out { animation: fadeOut 0.3s ease forwards; }
+
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+        /* Background Pattern for Auth */
+        .bg-pattern {
+            background-image: radial-gradient(#3b82f6 1px, transparent 1px);
+            background-size: 20px 20px; background-color: #eff6ff;
+        }
+        
+        .nav-item.active { background-color: #eff6ff; color: #2563eb; font-weight: 600; border-right: 3px solid #2563eb; }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex bg-gray-50">
+
+    <div id="toast-container"></div>
+
+    <div id="view-auth" class="app-view active w-full h-full flex items-center justify-center bg-pattern absolute inset-0 z-50">
+        <div class="glass p-8 rounded-2xl shadow-xl w-full max-w-md mx-4 relative overflow-hidden">
+            <!-- Decorative circle -->
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20"></div>
+            
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 mb-4">
+                    <i class="fa-solid fa-qrcode text-3xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800">Absensi WA</h1>
+                <p class="text-sm text-gray-500 mt-1">Sistem Kehadiran Cerdas</p>
+            </div>
+
+            <form id="login-form" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-regular fa-envelope text-gray-400"></i>
+                        </div>
+                        <input type="email" id="login-email" required class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors" placeholder="admin@sekolah.com">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-lock text-gray-400"></i>
+                        </div>
+                        <input type="password" id="login-password" required class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm transition-colors" placeholder="••••••••">
+                    </div>
+                </div>
+                <button type="submit" class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    Masuk ke Sistem
+                </button>
+            </form>
+            
+            <div class="mt-6 p-3 bg-blue-50 rounded-lg text-xs text-blue-800 border border-blue-100">
+                <strong>Info Testing:</strong><br>
+                Admin: admin@sekolah.com / admin<br>
+                Guru: guru@sekolah.com / guru
+            </div>
+        </div>
+    </div>
+
+    <div id="app-layout" class="hidden w-full h-full flex flex-col md:flex-row">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm flex-shrink-0 z-40 transition-all duration-300 hidden md:flex" id="sidebar">
+            <div class="h-16 flex items-center px-6 border-b border-gray-100">
+                <i class="fa-solid fa-qrcode text-blue-600 text-xl mr-3"></i>
+                <span class="font-bold text-lg text-gray-800 tracking-tight">Absen<span class="text-blue-600">Smart</span></span>
+            </div>
+            
+            <div class="p-4 border-b border-gray-100 flex items-center">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold shadow-sm">
+                    <span id="user-initial">A</span>
+                </div>
+                <div class="ml-3 overflow-hidden">
+                    <p class="text-sm font-semibold text-gray-800 truncate" id="user-name">Admin Name</p>
+                    <p class="text-xs text-gray-500 capitalize" id="user-role">Administrator</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1" id="nav-menu">
+                <!-- Nav items generated dynamically based on role -->
+            </nav>
+
+            <div class="p-4 border-t border-gray-100">
+                <button onclick="App.logout()" class="flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors">
+                    <i class="fa-solid fa-arrow-right-from-bracket w-6"></i>
+                    Keluar
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+            
+            <!-- Mobile Header -->
+            <header class="md:hidden h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-30">
+                <div class="flex items-center">
+                    <i class="fa-solid fa-qrcode text-blue-600 text-xl mr-2"></i>
+                    <span class="font-bold text-gray-800">AbsenSmart</span>
+                </div>
+                <button onclick="document.getElementById('sidebar').classList.toggle('hidden')" class="text-gray-500 hover:text-gray-700 p-2">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+            </header>
+
+            <!-- Views Container -->
+            <div class="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-8 relative">
+                
+                <div id="view-dashboard" class="app-view">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Dashboard</h2>
+                    
+                    <!-- Stats Row -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between border-l-4 border-l-green-500">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Hadir</p>
+                                <p class="text-2xl font-bold text-gray-800" id="stat-hadir">0</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-500">
+                                <i class="fa-solid fa-check"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between border-l-4 border-l-yellow-500">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Terlambat</p>
+                                <p class="text-2xl font-bold text-gray-800" id="stat-terlambat">0</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-500">
+                                <i class="fa-solid fa-clock"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between border-l-4 border-l-blue-500">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Izin/Sakit</p>
+                                <p class="text-2xl font-bold text-gray-800" id="stat-izinsakit">0</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+                                <i class="fa-solid fa-envelope-open-text"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between border-l-4 border-l-red-500">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Alpa</p>
+                                <p class="text-2xl font-bold text-gray-800" id="stat-alpa">0</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+                                <i class="fa-solid fa-xmark"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Chart -->
+                        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Tren Kehadiran 7 Hari Terakhir</h3>
+                            <div class="relative h-64 w-full">
+                                <canvas id="attendanceChart"></canvas>
+                            </div>
+                        </div>
+                        <!-- Belum Absen List -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-0 overflow-hidden flex flex-col">
+                            <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                <h3 class="text-md font-semibold text-gray-800">Belum Absen Hari Ini</h3>
+                                <span class="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full font-medium" id="stat-belum-absen">0 Siswa</span>
+                            </div>
+                            <div class="flex-1 overflow-y-auto max-h-64 p-0">
+                                <ul class="divide-y divide-gray-100" id="list-belum-absen">
+                                    <!-- Populated by JS -->
+                                    <li class="p-4 text-center text-sm text-gray-500">Memuat data...</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-scan" class="app-view h-full flex flex-col items-center">
+                    <div class="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-4">
+                        <div class="p-6 bg-blue-600 text-white text-center">
+                            <h2 class="text-2xl font-bold mb-2">Scan Barcode / Input NIS</h2>
+                            <p class="text-blue-100 text-sm opacity-90">Pastikan kursor berada di kotak input bawah sebelum melakukan scan.</p>
+                        </div>
+                        
+                        <div class="p-8">
+                            <!-- Input Area -->
+                            <div class="relative max-w-sm mx-auto mb-8">
+                                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-barcode text-gray-400 text-lg"></i>
+                                </div>
+                                <input type="text" id="scan-input" autocomplete="off" class="block w-full pl-12 pr-4 py-4 text-center text-xl font-bold tracking-widest text-gray-900 bg-gray-50 border-2 border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition-colors placeholder-gray-400" placeholder="SCAN / KETIK NIS">
+                            </div>
+
+                            <!-- Result Area (Hidden initially) -->
+                            <div id="scan-result" class="hidden transition-all duration-300 transform scale-95 opacity-0">
+                                <div class="border border-gray-200 rounded-xl p-5 mb-6 bg-slate-50 flex items-center space-x-4">
+                                    <div class="w-16 h-16 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center text-gray-500 text-2xl flex-shrink-0">
+                                        <i class="fa-solid fa-user"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <h3 class="text-xl font-bold text-gray-900 truncate" id="scan-nama">Nama Siswa</h3>
+                                        <div class="flex text-sm text-gray-500 mt-1 space-x-3">
+                                            <span><i class="fa-regular fa-id-card mr-1"></i> <span id="scan-nis">NIS</span></span>
+                                            <span><i class="fa-solid fa-chalkboard-user mr-1"></i> <span id="scan-kelas">Kelas</span></span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mt-1"><i class="fa-brands fa-whatsapp mr-1"></i> <span id="scan-wa">08...</span></p>
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="grid grid-cols-2 gap-3 mb-3">
+                                    <button onclick="App.submitAbsensi('Hadir')" class="py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl shadow-sm transition-colors flex flex-col items-center justify-center gap-1">
+                                        <i class="fa-solid fa-check-circle text-lg"></i> Hadir
+                                    </button>
+                                    <button onclick="App.submitAbsensi('Terlambat')" class="py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-xl shadow-sm transition-colors flex flex-col items-center justify-center gap-1">
+                                        <i class="fa-solid fa-clock text-lg"></i> Terlambat
+                                    </button>
+                                </div>
+                                <div class="grid grid-cols-3 gap-3">
+                                    <button onclick="App.submitAbsensi('Izin')" class="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-medium rounded-lg transition-colors text-sm">Izin</button>
+                                    <button onclick="App.submitAbsensi('Sakit')" class="py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-medium rounded-lg transition-colors text-sm">Sakit</button>
+                                    <button onclick="App.submitAbsensi('Alpa')" class="py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-medium rounded-lg transition-colors text-sm">Alpa</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Loading / Empty State -->
+                            <div id="scan-empty" class="text-center py-8 text-gray-400">
+                                <i class="fa-solid fa-qrcode text-4xl mb-3 opacity-20"></i>
+                                <p>Menunggu input scan...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Scans Mini List -->
+                    <div class="w-full max-w-2xl mt-6">
+                        <h4 class="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wider">Absensi Terakhir</h4>
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <ul class="divide-y divide-gray-100" id="list-recent-scans">
+                                <!-- Populated dynamically -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-master" class="app-view">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Data Master</h2>
+                        <button class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700" onclick="App.showToast('Fitur Tambah Data di-mock untuk prototype.', 'info')">
+                            <i class="fa-solid fa-plus mr-1"></i> Tambah Baru
+                        </button>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div class="border-b border-gray-200 mb-6">
+                        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                            <button onclick="App.switchMasterTab('siswa')" id="tab-btn-siswa" class="border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Data Siswa</button>
+                            <button onclick="App.switchMasterTab('kelas')" id="tab-btn-kelas" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Data Kelas</button>
+                        </nav>
+                    </div>
+
+                    <!-- Tab Content: Siswa -->
+                    <div id="tab-content-siswa" class="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+                        <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                            <div class="relative w-64">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa-solid fa-search text-gray-400"></i>
+                                </div>
+                                <input type="text" class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Cari nama / NIS...">
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NIS</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Lengkap</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kelas</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No. WA Ortu</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="table-body-siswa">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab Content: Kelas (Hidden initially) -->
+                    <div id="tab-content-kelas" class="hidden bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+                         <div class="p-8 text-center text-gray-500">
+                            <i class="fa-solid fa-layer-group text-4xl mb-3 text-gray-300"></i>
+                            <p>Manajemen data kelas. (Tampilan tabel di-mock)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-settings" class="app-view">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Pengaturan WhatsApp API</h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-6">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Konfigurasi Fonnte</h3>
+                            
+                            <!-- Tambahan Informasi Fonnte -->
+                            <div class="mb-5 p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start">
+                                <i class="fa-solid fa-circle-info text-blue-500 mt-0.5 mr-3"></i>
+                                <p class="text-sm text-blue-800 leading-relaxed">
+                                    <strong>Info:</strong> Proses scan QR Code WhatsApp dilakukan langsung di website <a href="https://fonnte.com" target="_blank" class="font-bold underline hover:text-blue-900">fonnte.com</a>. Setelah WhatsApp sekolah terhubung di Fonnte, salin <strong>Token API</strong> Anda dan simpan pada kolom di bawah ini.
+                                </p>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Token Fonnte</label>
+                                    <input type="password" id="setting-token" value="dummy_token_123" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Nama Sekolah</label>
+                                    <input type="text" id="setting-sekolah" value="SMA Negeri 1 Nusantara" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                                </div>
+                                <div class="pt-2 flex justify-between items-center">
+                                    <button class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200" onclick="App.showToast('Test pesan dikirim (mock).', 'info')">
+                                        Test Kirim WA
+                                    </button>
+                                    <button class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700" onclick="App.showToast('Pengaturan disimpan.', 'success')">
+                                        Simpan Pengaturan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-0 overflow-hidden flex flex-col h-96">
+                            <div class="p-4 border-b border-gray-100 bg-gray-50">
+                                <h3 class="text-lg font-medium text-gray-900">Log Notifikasi (Terbaru)</h3>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-0">
+                                <ul class="divide-y divide-gray-100" id="list-wa-logs">
+                                    <!-- Populated by JS -->
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- 1. MOCK DATABASE ---
+        const MockDB = {
+            users: [
+                { id: 1, email: 'admin@sekolah.com', password: 'admin', name: 'Budi Admin', role: 'admin' },
+                { id: 2, email: 'guru@sekolah.com', password: 'guru', name: 'Siti Guru', role: 'guru' }
+            ],
+            kelas: [
+                { id: 'k1', nama: 'X MIPA 1' }, { id: 'k2', nama: 'X IPS 1' }
+            ],
+            siswa: [
+                { id: 's1', nis: '1001', nama: 'Ahmad Fauzi', kelasId: 'k1', noWa: '081234567890', namaOrtu: 'Bpk. Herman' },
+                { id: 's2', nis: '1002', nama: 'Bunga Lestari', kelasId: 'k1', noWa: '089876543210', namaOrtu: 'Ibu Ratna' },
+                { id: 's3', nis: '1003', nama: 'Candra Wijaya', kelasId: 'k2', noWa: '085555555555', namaOrtu: 'Bpk. Wijaya' }
+            ],
+            absensiHariIni: [], // { nis, status, waktu }
+            waLogs: [] // { waktu, pesan, target, status }
+        };
+
+        // Populate initial absensi slightly
+        MockDB.absensiHariIni.push({ nis: '1003', status: 'Sakit', waktu: new Date().toLocaleTimeString('id-ID') });
+
+        // --- 2. MOCK API (Simulates Google Apps Script backend) ---
+        const MockAPI = {
+            login: (email, password) => {
+                const user = MockDB.users.find(u => u.email === email && u.password === password);
+                if (user) return { success: true, data: { ...user, password: '' } };
+                return { success: false, message: 'Email atau password salah.' };
+            },
+            
+            getDashboardStats: () => {
+                let stats = { totalSiswa: MockDB.siswa.length, Hadir: 0, Terlambat: 0, Izin: 0, Sakit: 0, Alpa: 0, belumAbsen: 0 };
+                const absenSet = new Set();
+                MockDB.absensiHariIni.forEach(a => {
+                    if (stats[a.status] !== undefined) stats[a.status]++;
+                    absenSet.add(a.nis);
+                });
+                
+                stats.belumAbsen = stats.totalSiswa - absenSet.size;
+                
+                const belumAbsenList = MockDB.siswa
+                    .filter(s => !absenSet.has(s.nis))
+                    .map(s => {
+                        const k = MockDB.kelas.find(kls => kls.id === s.kelasId);
+                        return { nama: s.nama, kelas: k ? k.nama : '-' };
+                    });
+
+                // Mock chart data
+                const trend = {
+                    labels: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum'],
+                    datasets: [
+                        { label: 'Hadir', data: [45, 48, 46, 49, stats.Hadir || 12], borderColor: '#10b981', tension: 0.4 },
+                        { label: 'Terlambat', data: [5, 2, 4, 1, stats.Terlambat || 2], borderColor: '#f59e0b', tension: 0.4 }
+                    ]
+                };
+
+                return { success: true, data: { stats, belumAbsenList, trend } };
+            },
+
+            scanNIS: (nis) => {
+                const siswa = MockDB.siswa.find(s => s.nis === nis);
+                if (siswa) {
+                    const kelas = MockDB.kelas.find(k => k.id === siswa.kelasId);
+                    return { success: true, data: { ...siswa, namaKelas: kelas.nama } };
+                }
+                return { success: false, message: 'Siswa dengan NIS tersebut tidak ditemukan.' };
+            },
+
+            submitAbsensi: (nis, status) => {
+                const siswa = MockDB.siswa.find(s => s.nis === nis);
+                if (!siswa) return { success: false, message: 'Data siswa tidak valid.' };
+
+                // Check if already exist
+                const existing = MockDB.absensiHariIni.findIndex(a => a.nis === nis);
+                const waktu = new Date().toLocaleTimeString('id-ID');
+                
+                if (existing >= 0) {
+                     MockDB.absensiHariIni[existing].status = status;
+                     MockDB.absensiHariIni[existing].waktu = waktu;
+                } else {
+                     MockDB.absensiHariIni.push({ nis, status, waktu, nama: siswa.nama });
+                }
+
+                let waSent = false;
+                if (status === 'Hadir' || status === 'Terlambat') {
+                    // Simulate WA sending
+                    waSent = true;
+                    const logMsg = `Yth. ${siswa.namaOrtu}, ${siswa.nama} telah ${status} pada pukul ${waktu}.`;
+                    MockDB.waLogs.unshift({ 
+                        waktu, target: siswa.namaOrtu + ' ('+siswa.noWa+')', status: 'Terkirim', pesan: logMsg 
+                    });
+                }
+
+                return { success: true, data: { status, waSent, waInfo: waSent ? 'WA Terkirim' : 'Tidak perlu WA' } };
+            },
+
+            getAllSiswa: () => {
+                const res = MockDB.siswa.map(s => {
+                    const k = MockDB.kelas.find(kls => kls.id === s.kelasId);
+                    return { ...s, namaKelas: k.nama };
+                });
+                return { success: true, data: res };
+            }
+        };
+
+        // --- 3. UI HELPER CONTROLLER ---
+        const Toast = {
+            show: (message, type = 'info') => {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                
+                let icon = 'fa-info-circle';
+                if(type === 'success') icon = 'fa-check-circle';
+                if(type === 'error') icon = 'fa-exclamation-triangle';
+
+                toast.innerHTML = `<div class="flex items-center"><i class="fa-solid ${icon} mr-3 text-lg"></i><span>${message}</span></div>
+                                   <button onclick="this.parentElement.remove()" class="ml-4 opacity-70 hover:opacity-100"><i class="fa-solid fa-times"></i></button>`;
+                
+                container.appendChild(toast);
+                setTimeout(() => {
+                    toast.classList.add('toast-fade-out');
+                    setTimeout(() => toast.remove(), 300);
+                }, 4000);
+            }
+        };
+
+        const App = {
+            currentUser: null,
+            activeView: 'auth',
+            currentScanSiswa: null,
+            chartInstance: null,
+
+            init: () => {
+                // Check local storage mock session
+                const session = localStorage.getItem('absen_session');
+                if (session) {
+                    App.currentUser = JSON.parse(session);
+                    App.setupLayout();
+                    App.switchView(App.currentUser.role === 'admin' ? 'dashboard' : 'scan');
+                }
+
+                // Bind Login Form
+                document.getElementById('login-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('login-email').value;
+                    const pass = document.getElementById('login-password').value;
+                    const btn = e.target.querySelector('button');
+                    const origText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Proses...';
+                    
+                    // Simulate network delay
+                    setTimeout(() => {
+                        const res = MockAPI.login(email, pass);
+                        btn.innerHTML = origText;
+                        if (res.success) {
+                            App.currentUser = res.data;
+                            localStorage.setItem('absen_session', JSON.stringify(res.data));
+                            App.setupLayout();
+                            App.switchView(App.currentUser.role === 'admin' ? 'dashboard' : 'scan');
+                            Toast.show(`Selamat datang, ${res.data.name}!`, 'success');
+                        } else {
+                            Toast.show(res.message, 'error');
+                        }
+                    }, 600);
+                });
+
+                // Bind Scan Input
+                const scanInput = document.getElementById('scan-input');
+                scanInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const nis = scanInput.value.trim();
+                        if(nis) App.handleScan(nis);
+                    }
+                });
+            },
+
+            setupLayout: () => {
+                document.getElementById('view-auth').classList.remove('active');
+                document.getElementById('view-auth').style.display = 'none';
+                document.getElementById('app-layout').classList.remove('hidden');
+                document.getElementById('app-layout').style.display = 'flex';
+                
+                document.getElementById('user-name').innerText = App.currentUser.name;
+                document.getElementById('user-role').innerText = App.currentUser.role === 'admin' ? 'Administrator' : 'Guru / Operator';
+                document.getElementById('user-initial').innerText = App.currentUser.name.charAt(0).toUpperCase();
+
+                // Build Menu based on role
+                const menuContainer = document.getElementById('nav-menu');
+                menuContainer.innerHTML = '';
+                
+                const menuItems = [
+                    { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie', roles: ['admin'] },
+                    { id: 'scan', label: 'Scan Absensi', icon: 'fa-barcode', roles: ['admin', 'guru'] },
+                    { id: 'master', label: 'Data Master', icon: 'fa-database', roles: ['admin'] },
+                    { id: 'settings', label: 'Pengaturan WA', icon: 'fa-brands fa-whatsapp', roles: ['admin'] }
+                ];
+
+                menuItems.forEach(item => {
+                    if (item.roles.includes(App.currentUser.role)) {
+                        const link = document.createElement('a');
+                        link.href = '#';
+                        link.className = `nav-item flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors mb-1`;
+                        link.dataset.target = item.id;
+                        link.innerHTML = `<i class="fa-solid ${item.icon} w-6 text-center text-gray-400 group-hover:text-blue-500"></i> <span class="ml-2">${item.label}</span>`;
+                        link.onclick = (e) => { e.preventDefault(); App.switchView(item.id); };
+                        menuContainer.appendChild(link);
+                    }
+                });
+            },
+
+            logout: () => {
+                localStorage.removeItem('absen_session');
+                App.currentUser = null;
+                document.getElementById('app-layout').classList.add('hidden');
+                document.getElementById('app-layout').style.display = '';
+                document.getElementById('view-auth').classList.add('active');
+                document.getElementById('view-auth').style.display = '';
+                document.getElementById('login-email').value = '';
+                document.getElementById('login-password').value = '';
+            },
+
+            switchView: (viewId) => {
+                // Update Nav UI
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                const activeLink = document.querySelector(`.nav-item[data-target="${viewId}"]`);
+                if(activeLink) activeLink.classList.add('active');
+
+                // Hide all views, show target
+                document.querySelectorAll('.app-view').forEach(el => el.classList.remove('active'));
+                const targetView = document.getElementById(`view-${viewId}`);
+                if (targetView) {
+                    targetView.classList.add('active');
+                    
+                    // Trigger specific view load logic
+                    if(viewId === 'dashboard') App.loadDashboard();
+                    if(viewId === 'scan') {
+                        setTimeout(() => document.getElementById('scan-input').focus(), 100);
+                        App.updateRecentScans();
+                    }
+                    if(viewId === 'master') App.loadMasterData();
+                    if(viewId === 'settings') App.loadWALogs();
+                    
+                    // Close sidebar on mobile
+                    if(window.innerWidth < 768) document.getElementById('sidebar').classList.add('hidden');
+                }
+            },
+
+            loadDashboard: () => {
+                const res = MockAPI.getDashboardStats();
+                if(res.success) {
+                    const data = res.data;
+                    document.getElementById('stat-hadir').innerText = data.stats.Hadir || 0;
+                    document.getElementById('stat-terlambat').innerText = data.stats.Terlambat || 0;
+                    document.getElementById('stat-izinsakit').innerText = (data.stats.Izin || 0) + (data.stats.Sakit || 0);
+                    document.getElementById('stat-alpa').innerText = data.stats.Alpa || 0;
+                    
+                    document.getElementById('stat-belum-absen').innerText = `${data.stats.belumAbsen} Siswa`;
+
+                    // Render list
+                    const listEl = document.getElementById('list-belum-absen');
+                    if(data.belumAbsenList.length === 0) {
+                        listEl.innerHTML = '<li class="p-4 text-center text-sm text-green-600"><i class="fa-solid fa-check-circle mr-1"></i> Semua siswa sudah diabsen.</li>';
+                    } else {
+                        listEl.innerHTML = data.belumAbsenList.map(s => `
+                            <li class="p-3 hover:bg-gray-50 flex justify-between items-center text-sm">
+                                <span class="font-medium text-gray-800">${s.nama}</span>
+                                <span class="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600">${s.kelas}</span>
+                            </li>
+                        `).join('');
+                    }
+
+                    // Render Chart
+                    App.renderChart(data.trend);
+                }
+            },
+
+            renderChart: (data) => {
+                try {
+                    if (typeof Chart === 'undefined') {
+                        console.warn('Library Chart.js belum selesai dimuat.');
+                        return;
+                    }
+                    const ctx = document.getElementById('attendanceChart');
+                    if (App.chartInstance) App.chartInstance.destroy();
+                    
+                    App.chartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: data,
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom' } },
+                            scales: { y: { beginAtZero: true, grid: { borderDash: [2, 4] } }, x: { grid: { display: false } } }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Terjadi kesalahan saat merender grafik:', error);
+                }
+            },
+
+            handleScan: (nis) => {
+                const input = document.getElementById('scan-input');
+                const resultBox = document.getElementById('scan-result');
+                const emptyState = document.getElementById('scan-empty');
+                
+                input.disabled = true;
+                Toast.show('Mencari data...', 'info');
+
+                setTimeout(() => { // network sim
+                    const res = MockAPI.scanNIS(nis);
+                    input.disabled = false;
+                    input.value = '';
+                    input.focus();
+
+                    if(res.success) {
+                        App.currentScanSiswa = res.data;
+                        document.getElementById('scan-nama').innerText = res.data.nama;
+                        document.getElementById('scan-nis').innerText = res.data.nis;
+                        document.getElementById('scan-kelas').innerText = res.data.namaKelas;
+                        document.getElementById('scan-wa').innerText = res.data.noWa;
+                        
+                        emptyState.classList.add('hidden');
+                        resultBox.classList.remove('hidden');
+                        resultBox.classList.remove('scale-95', 'opacity-0'); // animate in
+                    } else {
+                        Toast.show(res.message, 'error');
+                        App.resetScanView();
+                    }
+                }, 400);
+            },
+
+            submitAbsensi: (status) => {
+                if(!App.currentScanSiswa) return;
+                const nis = App.currentScanSiswa.nis;
+                
+                Toast.show('Menyimpan absensi...', 'info');
+                
+                setTimeout(() => { // network sim
+                    const res = MockAPI.submitAbsensi(nis, status);
+                    if(res.success) {
+                        let msg = `[${status}] ${App.currentScanSiswa.nama} tersimpan.`;
+                        if(res.data.waSent) msg += " WA Terkirim.";
+                        Toast.show(msg, 'success');
+                        
+                        App.resetScanView();
+                        App.updateRecentScans();
+                    }
+                }, 500);
+            },
+
+            resetScanView: () => {
+                App.currentScanSiswa = null;
+                const resultBox = document.getElementById('scan-result');
+                resultBox.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    resultBox.classList.add('hidden');
+                    document.getElementById('scan-empty').classList.remove('hidden');
+                    document.getElementById('scan-input').focus();
+                }, 300);
+            },
+
+            updateRecentScans: () => {
+                const list = document.getElementById('list-recent-scans');
+                const recent = MockDB.absensiHariIni.slice(-5).reverse();
+                
+                if(recent.length === 0) {
+                    list.innerHTML = '<li class="p-4 text-center text-sm text-gray-500">Belum ada absensi hari ini.</li>';
+                    return;
+                }
+
+                list.innerHTML = recent.map(r => {
+                    let color = 'bg-gray-100 text-gray-700';
+                    if(r.status === 'Hadir') color = 'bg-green-100 text-green-700';
+                    if(r.status === 'Terlambat') color = 'bg-yellow-100 text-yellow-700';
+                    if(r.status === 'Alpa') color = 'bg-red-100 text-red-700';
+
+                    return `
+                    <li class="p-3 hover:bg-gray-50 flex items-center justify-between">
+                        <div class="flex flex-col">
+                            <span class="text-sm font-medium text-gray-900">${r.nama || 'Siswa'}</span>
+                            <span class="text-xs text-gray-500">${r.nis} • ${r.waktu}</span>
+                        </div>
+                        <span class="px-2.5 py-1 text-xs font-semibold rounded-full ${color}">${r.status}</span>
+                    </li>`;
+                }).join('');
+            },
+
+            switchMasterTab: (tabId) => {
+                ['siswa', 'kelas'].forEach(id => {
+                    document.getElementById(`tab-content-${id}`).classList.add('hidden');
+                    document.getElementById(`tab-btn-${id}`).className = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+                });
+                
+                document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
+                document.getElementById(`tab-btn-${tabId}`).className = 'border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm';
+            },
+
+            loadMasterData: () => {
+                const res = MockAPI.getAllSiswa();
+                const tbody = document.getElementById('table-body-siswa');
+                tbody.innerHTML = res.data.map(s => `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${s.nis}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${s.nama}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${s.namaKelas}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${s.noWa}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button class="text-blue-600 hover:text-blue-900 mr-3" onclick="App.showToast('Edit mode mock')"><i class="fa-solid fa-edit"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+            },
+
+            loadWALogs: () => {
+                const list = document.getElementById('list-wa-logs');
+                if(MockDB.waLogs.length === 0) {
+                    list.innerHTML = '<li class="p-6 text-center text-sm text-gray-500">Belum ada log pengiriman.</li>';
+                    return;
+                }
+                
+                list.innerHTML = MockDB.waLogs.map(log => `
+                    <li class="p-4 hover:bg-gray-50">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-xs font-semibold text-gray-500">${log.waktu}</span>
+                            <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">${log.status}</span>
+                        </div>
+                        <p class="text-sm font-medium text-gray-800 mb-1">Kepada: ${log.target}</p>
+                        <p class="text-xs text-gray-600 italic bg-gray-100 p-2 rounded border border-gray-200">"${log.pesan}"</p>
+                    </li>
+                `).join('');
+            },
+
+            showToast: (msg, type) => Toast.show(msg, type)
+        };
+
+        // Initialize App on load
+        window.addEventListener('DOMContentLoaded', App.init);
+
+    </script>
+</body>
+</html>
